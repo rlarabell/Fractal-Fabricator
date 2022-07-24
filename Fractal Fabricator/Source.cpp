@@ -12,16 +12,20 @@ vector<complex<double>> createComplexNums(int width, int height);
 
 void createComponent(vector<double>& component, int size);
 
+void buildPixelsArray(vector<int> intensities, vector<sf::Uint8>& pixels);
+
+void buildIntensitiesArray(int arrayStart, int arrayEnd, vector<complex<double>> complexNums, vector<int>& intensities);
+
 class Func
 {
 	public:
-		double realMod, imaginMod; 
+		double realModifier, imaginaryModifier; 
 		int threshold; 
 
 		Func()
 		{
-			realMod = -0.835;
-			imaginMod = 0.2321;
+			realModifier = -0.835;
+			imaginaryModifier = 0.2321;
 			threshold = 2;
 		}
 
@@ -41,18 +45,18 @@ class Func
 		}
 
 	private:
-		//Function is f(x) = x^2 + realMod + imaginMod
+		//Function is f(x) = x^2 + realModifier + imaginaryModifier
 		complex<double> applyFunc(complex<double> coords)
 		{
-			double realNum, imaginNum;
+			double realNumber, imaginaryNumber;
 
-			//new real number = real^2 - imaginary^2 + realMod (subtracting imaginary squared since i^2 is equal to -1)
-			realNum = (real(coords) * real(coords)) - (imag(coords) * imag(coords)) + realMod;
+			//new real number = real^2 - imaginary^2 + realModifier (subtracting imaginary squared since i^2 is equal to -1)
+			realNumber = (real(coords) * real(coords)) - (imag(coords) * imag(coords)) + realModifier;
 
-			//new imaginary number = 2 * (real * imaginary) + imaginMod cause FOIL and stuff...
-			imaginNum = 2 * (imag(coords) * real(coords)) + imaginMod;
+			//new imaginary number = 2 * (real * imaginary) + imaginaryModifier cause FOIL and stuff...
+			imaginaryNumber = 2 * (imag(coords) * real(coords)) + imaginaryModifier;
 
-			coords = complex<double>(realNum, imaginNum); 
+			coords = complex<double>(realNumber, imaginaryNumber); 
 
 			return coords; 
 		}
@@ -71,7 +75,7 @@ int main()
 	sf::RenderWindow window; 
 	sf::View view; 
 
-	window.create(sf::VideoMode::getDesktopMode(), "Freaky Fractals", sf::Style::Fullscreen);
+	window.create(sf::VideoMode::getDesktopMode(), "Fractal Fabricator", sf::Style::Fullscreen);
 
 	view = window.getDefaultView();
 	window.setView(view);
@@ -84,7 +88,7 @@ int main()
 
 	pixels = createPixMap(width, height);
 
-	image.create(width, height, pixels.data());
+    image.create(width, height, pixels.data());
 
 	imageTexture.update(image);
 
@@ -92,7 +96,7 @@ int main()
 
 	imageSprite.setOrigin(imageSprite.getLocalBounds().width / 2, imageSprite.getLocalBounds().height / 2);
 
-	imageSprite.setPosition((width / 2), (height / 2));
+	imageSprite.setPosition(((float)width / 2), ((float)height / 2));
 
 	while (window.isOpen())
 	{
@@ -109,11 +113,6 @@ int main()
 		{
 			window.close();
 		}
-
-		if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space))
-		{
-			image.saveToFile("C:\\Users\\rlara\\test2.png");
-		}
 	}
 }
 
@@ -127,24 +126,51 @@ vector<sf::Uint8> createPixMap(int width, int height)
 
 	vector<complex<double>> complexNums;
 
-	vector<int> intensities;
+	vector<int> intensitiesFirstFourth, intensitiesSecondFourth, intensitiesThirdFourth, intensitiesFourthFourth;
 
 	complexNums = createComplexNums(width, height);
 
-	for (const auto& i : complexNums)
-	{
-		intensities.push_back(function.FuncCount(0, i));
-	}
+	int complexNumbersQuartered = complexNums.size()/4;
 
-	for (int i : intensities)
+	thread threadFirstFourth, threadSecondFourth, threadThirdFourth, threadFourthFourth;
+
+	threadFirstFourth = thread(buildIntensitiesArray, 0, complexNumbersQuartered, complexNums, ref(intensitiesFirstFourth));
+	threadSecondFourth = thread(buildIntensitiesArray, complexNumbersQuartered+1, complexNumbersQuartered*2, complexNums, ref(intensitiesSecondFourth));
+	threadThirdFourth = thread(buildIntensitiesArray, complexNumbersQuartered*2+1, complexNumbersQuartered*3, complexNums, ref(intensitiesThirdFourth));
+	threadFourthFourth = thread(buildIntensitiesArray, complexNumbersQuartered*3+1, complexNums.size()-1, complexNums, ref(intensitiesFourthFourth));
+	
+	threadFirstFourth.join();
+	threadSecondFourth.join();
+	threadThirdFourth.join();
+	threadFourthFourth.join();
+
+	buildPixelsArray(intensitiesFirstFourth, pixels);
+	buildPixelsArray(intensitiesSecondFourth, pixels);
+	buildPixelsArray(intensitiesThirdFourth, pixels);
+	buildPixelsArray(intensitiesFourthFourth, pixels);
+
+	return pixels; 
+}
+
+void buildPixelsArray(vector<int> intensities, vector<sf::Uint8>& pixels)
+{
+	for (const auto& i : intensities)
 	{
 		pixels.push_back(255);   // r 
 		pixels.push_back(255);  //  g 
 		pixels.push_back(255); //   b 
 		pixels.push_back(i);  //    a
 	}
+}
 
-	return pixels; 
+void buildIntensitiesArray(int arrayStart, int arrayEnd, vector<complex<double>> complexNums, vector<int>& intensities)
+{
+	Func function;
+
+	for (int i = arrayStart; i < arrayEnd; i++)
+	{
+		intensities.push_back(function.FuncCount(0, complexNums[i]));
+	}
 }
 
 vector<complex<double>> createComplexNums(int width, int height)
@@ -163,20 +189,6 @@ vector<complex<double>> createComplexNums(int width, int height)
 	threadReal.join();
 	threadImaginary.join();
 
-	/*
-				  ╔═════════════════════════════════════════╗
-				  ║	   MAP REAL AND IMAG VALUES TO PIXELS   ║
-				  ║    --------------------------------     ║
-				  ║ ►Cycles through each value in intensties║
-				  ║  array and sets the corresponding pixel ║
-				  ║  to white [(255,255,255) in RGB]        ║
-				  ║  with the proper alpha intensity        ║
-				  ║	                                        ║
-				  ║ ►Loop runs (width*height) times         ║
-				  ║                                         ║
-				  ║ ►Loop stores (width*height*4) values    ║
-				  ╚═════════════════════════════════════════╝
-	*/
 	for (int i = 0; i < height; i++)
 	{
 		for (int j = 0; j < width; j++)
@@ -192,21 +204,7 @@ vector<complex<double>> createComplexNums(int width, int height)
 
 void createComponent(vector<double>& component, int size)
 {
-	/*
-				  ╔═════════════════════════════════════════╗
-				  ║	      CALCULATE ARRAY OF VALUES         ║
-				  ║    --------------------------------     ║
-				  ║ ►Cycles through each value in intensties║
-				  ║  array and sets the corresponding pixel ║
-				  ║  to white [(255,255,255) in RGB]        ║
-				  ║  with the proper alpha intensity        ║
-				  ║	                                        ║
-				  ║ ►Loop runs (width*height) times         ║
-				  ║                                         ║
-				  ║ ►Loop stores (width*height*4) values    ║
-				  ╚═════════════════════════════════════════╝
-	*/
-	for (int i = -1; i < size - 1; i++) // loop runs width number of times starting at -1
+	for (int i = -1; i < size - 1; i++) 
 	{
 		if (component.empty() == true) // if no values have been computed yet
 			component.push_back(i); // first real value set to -1
