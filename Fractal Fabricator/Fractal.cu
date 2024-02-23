@@ -1,6 +1,7 @@
 #include <cuda_runtime.h>
 #include "device_launch_parameters.h"
 #include "Fractal.cuh"
+#include "Fractal.h"
 
 __global__ void calculateIntensities(const double* real, const double* imaginary, int* intensities, int width, int height, double realModifier, double imaginaryModifier, int threshold)
 {
@@ -37,6 +38,16 @@ class Func // Class representing the fractal function and its properties (TODO: 
 
         Func() : realModifier(-0.654), imaginaryModifier(0.475), threshold(2) {}
 };
+
+void get_pixel_data(int* output_data, int width, int height)
+{
+    std::vector<sf::Uint8> pixel_data = createPixMap(width, height);
+
+    for (size_t i = 0; i < pixel_data.size(); ++i)
+    {
+        output_data[i] = static_cast<int>(pixel_data[i]);
+    }
+}
 
 std::vector<sf::Uint8> createPixMap(int width, int height)
 {
